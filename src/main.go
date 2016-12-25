@@ -7,13 +7,14 @@ import (
     "strings"
     "sync"
     "html"
+    "github.com/auxten/simpleRESTfulDB/src/store"
 )
 
 type db struct {
     l sync.Mutex
-    db_map map[string]string
+    db_map map[string]interface{}
 }
-var DB_g = db{db_map:make(map[string]string)}
+var DB_g = db{db_map:make(map[string]interface{})}
 
 type Hello struct{}
 
@@ -24,7 +25,8 @@ func (h Hello) ServeHTTP( w http.ResponseWriter, r *http.Request) {
         defer DB_g.l.Unlock()
         v, exist := DB_g.db_map[url_list[2]]
         if exist {
-            w.Write([]byte(v))
+            v_str, _ := v.(string)
+            w.Write([]byte(v_str))
         } else {
             w.WriteHeader(http.StatusNotFound)
             w.Write([]byte(fmt.Sprintf("key %s not found", url_list[2])))
@@ -33,6 +35,7 @@ func (h Hello) ServeHTTP( w http.ResponseWriter, r *http.Request) {
         DB_g.l.Lock()
         defer DB_g.l.Unlock()
         DB_g.db_map[url_list[2]] = url_list[3]
+        store.Dump(DB_g.db_map)
     } else {
         w.WriteHeader(http.StatusNotImplemented)
         w.Write([]byte(fmt.Sprint("error request length")))
@@ -45,6 +48,7 @@ func (h Hello) ServeHTTP( w http.ResponseWriter, r *http.Request) {
 
 func main() {
     var h Hello
+    DB_g.db_map = store.Load()
     err := http.ListenAndServe("0.0.0.0:4000", h)
     if err != nil {
         log.Fatal(err)
